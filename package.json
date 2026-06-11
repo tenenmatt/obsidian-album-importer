@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-album-importer",
+  "version": "1.0.0",
+  "description": "Populate album metadata into note frontmatter by searching MusicBrainz.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "keywords": ["obsidian", "plugin", "musicbrainz", "album"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.23.0",
+    "obsidian": "^1.6.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

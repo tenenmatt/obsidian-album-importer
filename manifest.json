@@ -1,0 +1,9 @@
+{
+  "id": "album-importer",
+  "name": "Album Importer",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Populate album metadata into a note's frontmatter by searching MusicBrainz, with cover art embedded in the note.",
+  "author": "Matt Tenenbaum",
+  "isDesktopOnly": false
+}
