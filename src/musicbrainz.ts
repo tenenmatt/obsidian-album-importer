@@ -4,33 +4,13 @@
 // caller, which surfaces them as a Notice.
 
 import { requestUrl } from "obsidian";
+import { AlbumMetadata, AlbumProvider, AlbumSearchResult, parseYear } from "./album";
 
 export const USER_AGENT =
   "ObsidianAlbumImporter/1.0 (https://github.com/yourname/obsidian-album-importer)";
 
 const BASE = "https://musicbrainz.org/ws/2";
-
-export interface ReleaseGroupResult {
-  mbid: string;
-  title: string;
-  /** Display credit incl. join phrases, e.g. "A & B". */
-  artistCredit: string;
-  /** Individual artist names, for the frontmatter list. */
-  artists: string[];
-  year: number | null;
-  disambiguation: string | null;
-}
-
-export interface AlbumMetadata {
-  mbid: string;
-  album: string;
-  artists: string[];
-  artistCredit: string;
-  year: number | null;
-  label: string | null;
-  genre: string | null;
-  edition: string | null;
-}
+const CAA_BASE = "https://coverartarchive.org";
 
 interface ArtistCreditEntry {
   name?: string;
@@ -48,18 +28,16 @@ interface MbRelease {
 
 // --- Pure mappers -----------------------------------------------------------
 
-export function parseSearchResults(json: unknown): ReleaseGroupResult[] {
+export function parseSearchResults(json: unknown): AlbumSearchResult[] {
   const groups = asArray((json as Record<string, unknown> | null)?.["release-groups"]);
   return groups.map((raw) => {
     const rg = raw as Record<string, unknown>;
     const credit = asArray(rg["artist-credit"]) as ArtistCreditEntry[];
     return {
-      mbid: String(rg.id ?? ""),
+      id: String(rg.id ?? ""),
       title: String(rg.title ?? ""),
       artistCredit: formatCredit(credit),
-      artists: creditNames(credit),
       year: parseYear(rg["first-release-date"]),
-      disambiguation: nonEmpty(rg.disambiguation),
     };
   });
 }
@@ -99,9 +77,9 @@ export function mapReleaseGroupDetail(json: unknown): AlbumMetadata {
   const credit = asArray(rg["artist-credit"]) as ArtistCreditEntry[];
   const releases = asArray(rg.releases) as MbRelease[];
   const canonical = pickCanonicalRelease(releases);
+  const mbid = String(rg.id ?? "");
 
   return {
-    mbid: String(rg.id ?? ""),
     album: String(rg.title ?? ""),
     artists: creditNames(credit),
     artistCredit: formatCredit(credit),
@@ -110,17 +88,13 @@ export function mapReleaseGroupDetail(json: unknown): AlbumMetadata {
     genre: pickGenre(rg.genres as Array<{ name?: string; count?: number }> | undefined),
     // Release-specific disambiguation is more relevant than the group's.
     edition: nonEmpty(canonical?.disambiguation) ?? nonEmpty(rg.disambiguation),
+    coverArtUrl: mbid === "" ? null : `${CAA_BASE}/release-group/${mbid}/front`,
   };
-}
-
-export function formatResultLine(r: ReleaseGroupResult): string {
-  const suffix = r.year === null ? "" : ` (${r.year})`;
-  return `${r.title} — ${r.artistCredit}${suffix}`;
 }
 
 // --- HTTP -------------------------------------------------------------------
 
-export async function searchReleaseGroups(terms: string): Promise<ReleaseGroupResult[]> {
+export async function searchReleaseGroups(terms: string): Promise<AlbumSearchResult[]> {
   const url = `${BASE}/release-group?query=${encodeURIComponent(terms)}&type=album&fmt=json&limit=10`;
   const response = await requestUrl({ url, headers: { "User-Agent": USER_AGENT } });
   return parseSearchResults(response.json);
@@ -133,6 +107,14 @@ export async function fetchReleaseGroupDetail(mbid: string): Promise<AlbumMetada
   const response = await requestUrl({ url, headers: { "User-Agent": USER_AGENT } });
   return mapReleaseGroupDetail(response.json);
 }
+
+export const musicBrainzProvider: AlbumProvider = {
+  name: "MusicBrainz",
+  search: (terms) => searchReleaseGroups(terms),
+  // User disambiguation between search and detail provides natural spacing for
+  // the ~1 req/sec MusicBrainz rate limit.
+  fetchDetail: (result) => fetchReleaseGroupDetail(result.id),
+};
 
 // --- helpers ----------------------------------------------------------------
 
@@ -150,12 +132,6 @@ function formatCredit(credit: ArtistCreditEntry[]): string {
   return credit
     .map((entry) => `${entry.name ?? entry.artist?.name ?? ""}${entry.joinphrase ?? ""}`)
     .join("");
-}
-
-function parseYear(date: unknown): number | null {
-  if (typeof date !== "string") return null;
-  const match = date.match(/^(\d{4})/);
-  return match ? Number(match[1]) : null;
 }
 
 function nonEmpty(value: unknown): string | null {

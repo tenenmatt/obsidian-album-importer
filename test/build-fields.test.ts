@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { buildManagedFields } from "../src/build-fields";
 import { DEFAULT_SETTINGS } from "../src/settings";
-import type { AlbumMetadata } from "../src/musicbrainz";
+import type { AlbumMetadata } from "../src/album";
 
 const keys = DEFAULT_SETTINGS.fieldKeys;
 
 const fullMetadata: AlbumMetadata = {
-  mbid: "rg-1",
   album: "Origami Harvest",
   artists: ["Ambrose Akinmusire"],
   artistCredit: "Ambrose Akinmusire",
@@ -14,6 +13,7 @@ const fullMetadata: AlbumMetadata = {
   label: "Blue Note Records",
   genre: "Jazz",
   edition: "Deluxe Edition",
+  coverArtUrl: "https://coverartarchive.org/release-group/rg-1/front",
 };
 
 describe("buildManagedFields", () => {

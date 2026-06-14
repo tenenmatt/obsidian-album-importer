@@ -36,12 +36,12 @@ describe("downloadCoverArt", () => {
     };
   });
 
-  it("downloads from the Cover Art Archive and saves under the configured folder", async () => {
+  it("downloads from the given URL and saves under the configured folder", async () => {
     const bytes = new Uint8Array([1, 2, 3]).buffer;
     vi.mocked(requestUrl).mockResolvedValue({ arrayBuffer: bytes } as never);
 
     const path = await downloadCoverArt(
-      "rg-1",
+      "https://coverartarchive.org/release-group/rg-1/front",
       "Ambrose Akinmusire",
       "Origami Harvest",
       "album-covers",
@@ -58,11 +58,18 @@ describe("downloadCoverArt", () => {
     );
   });
 
+  it("returns null without requesting when no cover URL is available", async () => {
+    expect(await downloadCoverArt(null, "A", "B", "album-covers", vault)).toBeNull();
+    expect(await downloadCoverArt("  ", "A", "B", "album-covers", vault)).toBeNull();
+    expect(requestUrl).not.toHaveBeenCalled();
+    expect(vault.writeBinary).not.toHaveBeenCalled();
+  });
+
   it("returns null and warns (no write) when the request fails / 404", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.mocked(requestUrl).mockRejectedValue(new Error("404"));
 
-    const path = await downloadCoverArt("rg-1", "A", "B", "album-covers", vault);
+    const path = await downloadCoverArt("https://example.com/cover.jpg", "A", "B", "album-covers", vault);
 
     expect(path).toBeNull();
     expect(vault.writeBinary).not.toHaveBeenCalled();
@@ -75,7 +82,7 @@ describe("downloadCoverArt", () => {
     vi.mocked(requestUrl).mockResolvedValue({ arrayBuffer: new ArrayBuffer(1) } as never);
     vault.writeBinary.mockRejectedValue(new Error("disk full"));
 
-    const path = await downloadCoverArt("rg-1", "A", "B", "album-covers", vault);
+    const path = await downloadCoverArt("https://example.com/cover.jpg", "A", "B", "album-covers", vault);
 
     expect(path).toBeNull();
     expect(warn).toHaveBeenCalled();

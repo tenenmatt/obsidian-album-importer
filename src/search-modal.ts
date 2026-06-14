@@ -12,6 +12,7 @@ export class SearchModal extends Modal {
   constructor(
     app: App,
     initial: string,
+    private providerName: string,
   ) {
     super(app);
     this.value = initial;
@@ -28,7 +29,7 @@ export class SearchModal extends Modal {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: "Import album metadata" });
 
-    new Setting(contentEl).setName("Search MusicBrainz").addText((text) => {
+    new Setting(contentEl).setName(`Search ${this.providerName}`).addText((text) => {
       text.setValue(this.value).onChange((v) => (this.value = v));
       text.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {

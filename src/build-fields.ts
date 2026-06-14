@@ -1,10 +1,10 @@
-// Assemble the plugin-managed frontmatter object from MusicBrainz metadata and
+// Assemble the plugin-managed frontmatter object from album metadata and
 // the import context, applying the omit-when-absent rules (optional fields are
 // left out entirely rather than written as empty values). Pure — type-only
 // imports keep this free of Obsidian/network runtime.
 
 import type { ManagedFields } from "./frontmatter";
-import type { AlbumMetadata } from "./musicbrainz";
+import type { AlbumMetadata } from "./album";
 import type { FieldKeys } from "./settings";
 
 export interface ImportContext {

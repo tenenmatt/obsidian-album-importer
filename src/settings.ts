@@ -76,7 +76,7 @@ export class AlbumImporterSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Cover art" });
     new Setting(containerEl)
       .setName("Download cover art")
-      .setDesc("Download front cover from the Cover Art Archive and embed it.")
+      .setDesc("Download the front cover from the lookup source and embed it.")
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.downloadCover).onChange(async (value) => {
           this.plugin.settings.downloadCover = value;

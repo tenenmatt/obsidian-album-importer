@@ -6,16 +6,16 @@ import {
   pickGenre,
   pickLabel,
   mapReleaseGroupDetail,
-  formatResultLine,
   searchReleaseGroups,
   fetchReleaseGroupDetail,
+  musicBrainzProvider,
   USER_AGENT,
 } from "../src/musicbrainz";
 
 vi.mock("obsidian");
 
 describe("parseSearchResults", () => {
-  it("maps id, title, artist credit, year, and disambiguation", () => {
+  it("maps id, title, artist credit, and year", () => {
     const json = {
       "release-groups": [
         {
@@ -32,30 +32,25 @@ describe("parseSearchResults", () => {
     };
     expect(parseSearchResults(json)).toEqual([
       {
-        mbid: "mbid-1",
+        id: "mbid-1",
         title: "Origami Harvest",
         artistCredit: "Ambrose Akinmusire & Kool A.D.",
-        artists: ["Ambrose Akinmusire", "Kool A.D."],
         year: 2017,
-        disambiguation: null,
       },
     ]);
   });
 
-  it("keeps a non-empty disambiguation and yields null year when date is absent", () => {
+  it("yields null year when the date is absent", () => {
     const json = {
       "release-groups": [
         {
           id: "m",
           title: "T",
-          disambiguation: "Remastered",
           "artist-credit": [{ name: "A", joinphrase: "" }],
         },
       ],
     };
-    const [r] = parseSearchResults(json);
-    expect(r.year).toBeNull();
-    expect(r.disambiguation).toBe("Remastered");
+    expect(parseSearchResults(json)[0].year).toBeNull();
   });
 
   it("falls back to artist.name and returns [] when there are no release groups", () => {
@@ -64,7 +59,7 @@ describe("parseSearchResults", () => {
         { id: "m", title: "T", "artist-credit": [{ artist: { name: "Nested" } }] },
       ],
     };
-    expect(parseSearchResults(json)[0].artists).toEqual(["Nested"]);
+    expect(parseSearchResults(json)[0].artistCredit).toBe("Nested");
     expect(parseSearchResults({})).toEqual([]);
     expect(parseSearchResults(null)).toEqual([]);
   });
@@ -74,9 +69,8 @@ describe("parseSearchResults", () => {
       "release-groups": [{ "first-release-date": "", "artist-credit": [{}] }],
     };
     const [r] = parseSearchResults(json);
-    expect(r.mbid).toBe("");
+    expect(r.id).toBe("");
     expect(r.title).toBe("");
-    expect(r.artists).toEqual([]);
     expect(r.artistCredit).toBe("");
     expect(r.year).toBeNull();
   });
@@ -172,7 +166,6 @@ describe("mapReleaseGroupDetail", () => {
 
   it("derives album metadata from the canonical release", () => {
     expect(mapReleaseGroupDetail(detail)).toEqual({
-      mbid: "rg-1",
       album: "Origami Harvest",
       artists: ["Ambrose Akinmusire"],
       artistCredit: "Ambrose Akinmusire",
@@ -180,6 +173,7 @@ describe("mapReleaseGroupDetail", () => {
       label: null, // request is unwired; canonical release carries no label-info
       genre: "jazz",
       edition: "Deluxe Edition",
+      coverArtUrl: "https://coverartarchive.org/release-group/rg-1/front",
     });
   });
 
@@ -192,6 +186,14 @@ describe("mapReleaseGroupDetail", () => {
     expect(mapReleaseGroupDetail(d).edition).toBe("Mono");
   });
 
+  it("reads artist names from nested credits and drops nameless entries", () => {
+    const d = {
+      ...detail,
+      "artist-credit": [{ artist: { name: "Nested" } }, {}],
+    };
+    expect(mapReleaseGroupDetail(d).artists).toEqual(["Nested"]);
+  });
+
   it("falls back to first-release-date when there is no canonical release", () => {
     const d = { ...detail, releases: [{ id: "r", status: "Bootleg" }] };
     const meta = mapReleaseGroupDetail(d);
@@ -199,9 +201,8 @@ describe("mapReleaseGroupDetail", () => {
     expect(meta.edition).toBeNull();
   });
 
-  it("returns empty defaults for a null/empty detail", () => {
+  it("returns empty defaults (and a null cover) for a null/empty detail", () => {
     expect(mapReleaseGroupDetail(null)).toEqual({
-      mbid: "",
       album: "",
       artists: [],
       artistCredit: "",
@@ -209,35 +210,8 @@ describe("mapReleaseGroupDetail", () => {
       label: null,
       genre: null,
       edition: null,
+      coverArtUrl: null,
     });
-  });
-});
-
-describe("formatResultLine", () => {
-  it("renders title, artist, and year", () => {
-    expect(
-      formatResultLine({
-        mbid: "m",
-        title: "Origami Harvest",
-        artistCredit: "Ambrose Akinmusire",
-        artists: ["Ambrose Akinmusire"],
-        year: 2017,
-        disambiguation: null,
-      }),
-    ).toBe("Origami Harvest — Ambrose Akinmusire (2017)");
-  });
-
-  it("omits the year when unknown", () => {
-    expect(
-      formatResultLine({
-        mbid: "m",
-        title: "T",
-        artistCredit: "A",
-        artists: ["A"],
-        year: null,
-        disambiguation: null,
-      }),
-    ).toBe("T — A");
   });
 });
 
@@ -283,5 +257,33 @@ describe("HTTP", () => {
     );
     expect(meta.album).toBe("Origami Harvest");
     expect(meta.year).toBe(2017);
+  });
+});
+
+describe("musicBrainzProvider", () => {
+  beforeEach(() => {
+    vi.mocked(requestUrl).mockReset();
+  });
+
+  it("is named and delegates search + fetchDetail to the HTTP endpoints", async () => {
+    expect(musicBrainzProvider.name).toBe("MusicBrainz");
+
+    vi.mocked(requestUrl).mockResolvedValue({
+      json: { "release-groups": [], id: "rg-9", title: "Detail" },
+    } as never);
+
+    await musicBrainzProvider.search("terms");
+    const searchArg = vi.mocked(requestUrl).mock.calls[0][0] as { url: string };
+    expect(searchArg.url).toContain("/release-group?query=terms");
+
+    const meta = await musicBrainzProvider.fetchDetail({
+      id: "rg-9",
+      title: "Detail",
+      artistCredit: "A",
+      year: null,
+    });
+    const detailArg = vi.mocked(requestUrl).mock.calls[1][0] as { url: string };
+    expect(detailArg.url).toContain("/release-group/rg-9?");
+    expect(meta.album).toBe("Detail");
   });
 });

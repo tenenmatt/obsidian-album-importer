@@ -1,11 +1,9 @@
-// Step 6: download the front cover from the Cover Art Archive and save it to
+// Step 6: download the front cover from a provider-supplied URL and save it to
 // the vault. A missing or failed cover must never block the import, so every
 // failure path is swallowed (logged) and yields null. The vault is injected as
 // a tiny interface so this module is testable without a real Obsidian Vault.
 
 import { requestUrl } from "obsidian";
-
-const CAA_BASE = "https://coverartarchive.org";
 
 // Characters that are unsafe in filenames across platforms, plus control chars.
 const UNSAFE_CHARS = /[\\/:*?"<>|\x00-\x1f]/g;
@@ -24,27 +22,27 @@ export function sanitizeFilename(artist: string, album: string): string {
 }
 
 /**
- * Fetch the release group's front cover and save it under `folder`. Returns the
- * vault-relative path on success, or null on any failure (404, network error,
- * or write error) after logging a warning.
+ * Fetch the front cover from `coverUrl` and save it under `folder`. Returns the
+ * vault-relative path on success, or null on any failure (no URL, 404, network
+ * error, or write error) after logging a warning.
  */
 export async function downloadCoverArt(
-  mbid: string,
+  coverUrl: string | null,
   artist: string,
   album: string,
   folder: string,
   vault: VaultFileWriter,
 ): Promise<string | null> {
-  const url = `${CAA_BASE}/release-group/${mbid}/front`;
+  if (coverUrl === null || coverUrl.trim() === "") return null;
   const path = `${folder}/${sanitizeFilename(artist, album)}`;
 
   try {
-    const response = await requestUrl({ url });
+    const response = await requestUrl({ url: coverUrl });
     await vault.ensureFolder(folder);
     await vault.writeBinary(path, response.arrayBuffer);
     return path;
   } catch (error) {
-    console.warn(`Album Importer: cover art unavailable for ${mbid}:`, error);
+    console.warn(`Album Importer: cover art unavailable from ${coverUrl}:`, error);
     return null;
   }
 }

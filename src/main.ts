@@ -14,7 +14,9 @@ import {
 } from "./settings";
 import { parseSelectionUrl } from "./platform";
 import { primaryArtist, buildSearchTerms } from "./search-terms";
-import { searchReleaseGroups, fetchReleaseGroupDetail } from "./musicbrainz";
+import { AlbumProvider } from "./album";
+import { musicBrainzProvider } from "./musicbrainz";
+import { appleMusicProvider } from "./apple-music";
 import { downloadCoverArt, VaultFileWriter } from "./cover-art";
 import { buildManagedFields } from "./build-fields";
 import { mergeFrontmatter, setCoverEmbed, FrontmatterParseError } from "./frontmatter";
@@ -28,8 +30,13 @@ export default class AlbumImporterPlugin extends Plugin {
     await this.loadSettings();
     this.addCommand({
       id: "import-album-metadata",
-      name: "Import album metadata",
-      editorCallback: (editor, ctx) => this.importAlbum(editor, ctx),
+      name: "Import album metadata (MusicBrainz)",
+      editorCallback: (editor, ctx) => this.importAlbum(musicBrainzProvider, editor, ctx),
+    });
+    this.addCommand({
+      id: "import-album-metadata-apple",
+      name: "Import album metadata (Apple Music)",
+      editorCallback: (editor, ctx) => this.importAlbum(appleMusicProvider, editor, ctx),
     });
     this.addSettingTab(new AlbumImporterSettingTab(this.app, this));
   }
@@ -48,6 +55,7 @@ export default class AlbumImporterPlugin extends Plugin {
   }
 
   private async importAlbum(
+    provider: AlbumProvider,
     editor: Editor,
     ctx: MarkdownView | MarkdownFileInfo,
   ): Promise<void> {
@@ -58,7 +66,7 @@ export default class AlbumImporterPlugin extends Plugin {
     }
 
     try {
-      await this.runImport(editor, file);
+      await this.runImport(provider, editor, file);
     } catch (error) {
       // Safety net: surface any unexpected failure instead of failing silently.
       console.error("[Album Importer] unexpected error:", error);
@@ -66,7 +74,11 @@ export default class AlbumImporterPlugin extends Plugin {
     }
   }
 
-  private async runImport(editor: Editor, file: TFile): Promise<void> {
+  private async runImport(
+    provider: AlbumProvider,
+    editor: Editor,
+    file: TFile,
+  ): Promise<void> {
     const keys = this.settings.fieldKeys;
 
     // Step 1 — gather inputs from the selection and existing frontmatter.
@@ -81,20 +93,24 @@ export default class AlbumImporterPlugin extends Plugin {
     });
 
     // Step 2 — search modal.
-    const terms = await new SearchModal(this.app, prepopulated).openAndAwait();
+    const terms = await new SearchModal(this.app, prepopulated, provider.name).openAndAwait();
     if (terms === null) return; // dismissed
     if (terms.trim() === "") {
       new Notice("Enter an album title to search.");
       return;
     }
 
-    // Step 3 — MusicBrainz search.
+    // Step 3 — provider search. A persistent notice (duration 0) makes the
+    // network wait visible and distinguishes "in progress" from a silent stall.
     let results;
+    const searching = new Notice(`Searching ${provider.name}…`, 0);
     try {
-      results = await searchReleaseGroups(terms.trim());
+      results = await provider.search(terms.trim());
     } catch (error) {
-      new Notice(`MusicBrainz search failed: ${messageOf(error)}`);
+      new Notice(`${provider.name} search failed: ${messageOf(error)}`);
       return;
+    } finally {
+      searching.hide();
     }
     if (results.length === 0) {
       new Notice("No results found — try different search terms.");
@@ -105,27 +121,34 @@ export default class AlbumImporterPlugin extends Plugin {
     const chosen = await new ResultSuggestModal(this.app, results).openAndAwait();
     if (chosen === null) return; // dismissed silently
 
-    // Step 5 — fetch release details. User disambiguation provides natural
-    // spacing for the ~1 req/sec MusicBrainz rate limit.
+    // Steps 5–6 — fetch details then cover art, both network-bound. One
+    // persistent notice spans them, its message updated as the stage changes,
+    // so the post-selection wait never looks like a hang.
+    const progress = new Notice("Fetching album details…", 0);
+
+    // Step 5 — fetch album details for the chosen result.
     let metadata;
     try {
-      metadata = await fetchReleaseGroupDetail(chosen.mbid);
+      metadata = await provider.fetchDetail(chosen);
     } catch (error) {
-      new Notice(`MusicBrainz search failed: ${messageOf(error)}`);
+      progress.hide();
+      new Notice(`${provider.name} lookup failed: ${messageOf(error)}`);
       return;
     }
 
     // Step 6 — cover art (failures are non-blocking, handled within).
     let coverPath: string | null = null;
     if (this.settings.downloadCover) {
+      progress.setMessage("Downloading cover art…");
       coverPath = await downloadCoverArt(
-        metadata.mbid,
+        metadata.coverArtUrl,
         metadata.artistCredit,
         metadata.album,
         normalizePath(this.settings.coverFolder),
         this.vaultWriter(),
       );
     }
+    progress.hide();
 
     // Step 7 — write output.
     const fields = buildManagedFields(
