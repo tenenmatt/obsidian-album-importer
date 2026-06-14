@@ -9,9 +9,15 @@
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "build:sync": "npm run build && cp main.js manifest.json \"${OBSIDIAN_VAULT:?OBSIDIAN_VAULT is not set}/.obsidian/plugins/album-importer/\""
   },
-  "keywords": ["obsidian", "plugin", "musicbrainz", "album"],
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "musicbrainz",
+    "album"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
