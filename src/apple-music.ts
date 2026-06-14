@@ -18,7 +18,18 @@ interface ItunesCollection {
   artworkUrl100?: string;
 }
 
-// --- Pure mappers -----------------------------------------------------------
+// --- Provider (the module's public surface) ---------------------------------
+// The only export the runtime uses: main.ts wires this into the plugin. It
+// delegates to the mapper/HTTP functions below, which are exported separately
+// only so the unit tests can reach them.
+
+export const appleMusicProvider: AlbumProvider = {
+  name: "Apple Music",
+  search: (terms) => searchAlbums(terms),
+  fetchDetail: (result) => fetchAlbumDetail(result.id),
+};
+
+// --- Pure mappers (exported for tests) --------------------------------------
 
 export function parseSearchResults(json: unknown): AlbumSearchResult[] {
   const results = asArray((json as Record<string, unknown> | null)?.results) as ItunesCollection[];
@@ -58,7 +69,8 @@ export function upscaleArtwork(url: string | undefined): string | null {
   return url.replace(/\d+x\d+bb/, "1000x1000bb");
 }
 
-// --- HTTP -------------------------------------------------------------------
+// --- HTTP (exported for tests) ----------------------------------------------
+// Reached at runtime only via the provider above.
 
 export async function searchAlbums(terms: string): Promise<AlbumSearchResult[]> {
   const url = `${SEARCH}?term=${encodeURIComponent(terms)}&entity=album&limit=10`;
@@ -71,12 +83,6 @@ export async function fetchAlbumDetail(id: string): Promise<AlbumMetadata> {
   const response = await requestUrl({ url });
   return mapAlbumDetail(response.json);
 }
-
-export const appleMusicProvider: AlbumProvider = {
-  name: "Apple Music",
-  search: (terms) => searchAlbums(terms),
-  fetchDetail: (result) => fetchAlbumDetail(result.id),
-};
 
 // --- helpers ----------------------------------------------------------------
 

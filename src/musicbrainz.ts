@@ -26,7 +26,20 @@ interface MbRelease {
   "label-info"?: Array<{ label?: { name?: string } }>;
 }
 
-// --- Pure mappers -----------------------------------------------------------
+// --- Provider (the module's public surface) ---------------------------------
+// The only export the runtime uses: main.ts wires this into the plugin. It
+// delegates to the mapper/HTTP functions below, which are exported separately
+// only so the unit tests can reach them.
+
+export const musicBrainzProvider: AlbumProvider = {
+  name: "MusicBrainz",
+  search: (terms) => searchReleaseGroups(terms),
+  // User disambiguation between search and detail provides natural spacing for
+  // the ~1 req/sec MusicBrainz rate limit.
+  fetchDetail: (result) => fetchReleaseGroupDetail(result.id),
+};
+
+// --- Pure mappers (exported for tests) --------------------------------------
 
 export function parseSearchResults(json: unknown): AlbumSearchResult[] {
   const groups = asArray((json as Record<string, unknown> | null)?.["release-groups"]);
@@ -92,7 +105,8 @@ export function mapReleaseGroupDetail(json: unknown): AlbumMetadata {
   };
 }
 
-// --- HTTP -------------------------------------------------------------------
+// --- HTTP (exported for tests) ----------------------------------------------
+// Reached at runtime only via the provider above.
 
 export async function searchReleaseGroups(terms: string): Promise<AlbumSearchResult[]> {
   const url = `${BASE}/release-group?query=${encodeURIComponent(terms)}&type=album&fmt=json&limit=10`;
@@ -107,14 +121,6 @@ export async function fetchReleaseGroupDetail(mbid: string): Promise<AlbumMetada
   const response = await requestUrl({ url, headers: { "User-Agent": USER_AGENT } });
   return mapReleaseGroupDetail(response.json);
 }
-
-export const musicBrainzProvider: AlbumProvider = {
-  name: "MusicBrainz",
-  search: (terms) => searchReleaseGroups(terms),
-  // User disambiguation between search and detail provides natural spacing for
-  // the ~1 req/sec MusicBrainz rate limit.
-  fetchDetail: (result) => fetchReleaseGroupDetail(result.id),
-};
 
 // --- helpers ----------------------------------------------------------------
 
