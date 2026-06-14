@@ -1,7 +1,7 @@
 {
   "name": "obsidian-album-importer",
   "version": "1.0.0",
-  "description": "Populate album metadata into note frontmatter by searching MusicBrainz.",
+  "description": "Populate album metadata into note frontmatter by searching public APIs.",
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -14,9 +14,14 @@
   },
   "keywords": [
     "obsidian",
-    "plugin",
+    "obsidian-plugin",
     "musicbrainz",
-    "album"
+    "itunes",
+    "apple-music",
+    "cover-art",
+    "album",
+    "music",
+    "metadata"
   ],
   "license": "MIT",
   "devDependencies": {
