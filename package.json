@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "build:sync": "npm run build && cp main.js manifest.json \"${OBSIDIAN_VAULT:?OBSIDIAN_VAULT is not set}/.obsidian/plugins/album-importer/\""
+    "build:sync": "npm run build && cp main.js manifest.json \"${OBSIDIAN_VAULT:?OBSIDIAN_VAULT is not set}/.obsidian/plugins/album-importer/\"",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
     "obsidian",
