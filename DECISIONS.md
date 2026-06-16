@@ -1,7 +1,7 @@
 # Decisions Log
 
 A running record of judgment calls made while implementing against
-`album-importer-spec.md` — particularly where the spec was ambiguous, silent, or
+`docs/original-spec.md` — particularly where the spec was ambiguous, silent, or
 internally inconsistent. Each entry: the decision, why, and where it diverged
 from the spec. Low-risk/reversible calls are made and logged here; data-model,
 hard-to-reverse, dependency, or user-visible-divergent calls are raised before
