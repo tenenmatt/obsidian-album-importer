@@ -7,7 +7,7 @@ import { requestUrl } from "obsidian";
 import { AlbumMetadata, AlbumProvider, AlbumSearchResult, parseYear } from "./album";
 
 export const USER_AGENT =
-  "ObsidianAlbumImporter/1.0 (https://github.com/yourname/obsidian-album-importer)";
+  "ObsidianAlbumImporter/1.0 (https://github.com/tenenmatt/obsidian-album-importer)";
 
 const BASE = "https://musicbrainz.org/ws/2";
 const CAA_BASE = "https://coverartarchive.org";
