@@ -1,0 +1,37 @@
+{
+  "name": "obsidian-album-importer",
+  "version": "1.0.0",
+  "description": "Populate album metadata into note frontmatter by searching public APIs.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "build:sync": "npm run build && cp main.js manifest.json \"${OBSIDIAN_VAULT:?OBSIDIAN_VAULT is not set}/.obsidian/plugins/album-importer/\"",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "musicbrainz",
+    "itunes",
+    "apple-music",
+    "cover-art",
+    "album",
+    "music",
+    "metadata"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.23.0",
+    "obsidian": "^1.6.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}
